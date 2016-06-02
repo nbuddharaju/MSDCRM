@@ -27,7 +27,6 @@ public class program {
 		}
 	}
 	
-	
 	public static void main(String[] args) throws Exception {
 
 		CrmAuth auth = new CrmAuth();
@@ -51,11 +50,10 @@ public class program {
 		String id = CrmWhoAmI(authHeader, url);
 		if (id == null)
 			return;
-
 //		String name = CrmGetUserName(authHeader, id, url);
 		List<String> fld_list = Arrays.asList("Id");
 //		CrmGetOpportunityCount(authHeader, "Audit", url, fld_list);
-		CrmGetOpportunityIds(authHeader, "Audit", url, fld_list);
+		CrmGetOpportunityIds(authHeader, "opportunity", url, fld_list);
 //		System.out.println(name);
 	}
 
@@ -224,7 +222,7 @@ public class program {
 //		xml.append("</Execute>");
 		xml.append("</s:Body>");
 
-		System.out.println("request " + xml.toString());
+//		System.out.println("request " + xml.toString());
 		Document xDoc = CrmExecuteSoap.ExecuteSoapRequest(authHeader,
 				xml.toString(), url);
 		
@@ -233,7 +231,7 @@ public class program {
 
 		String firstname = "";
 		String lastname = "";
-		System.out.println(" Output " + xDoc.toString());
+//		System.out.println(" Output " + xDoc.toString());
 //		NodeList nodes = xDoc
 //				.getElementsByTagName("b:KeyValuePairOfstringanyType");
 //		for (int i = 0; i < nodes.getLength(); i++) {
@@ -250,38 +248,45 @@ public class program {
 		return "";
 	}
 
-	private static void CrmGetOpportunityIds(CrmAuthenticationHeader authHeader, String string, String url,
+	private static void CrmGetOpportunityIds(CrmAuthenticationHeader authHeader, String entity, String url,
 			List<String> fld_list) {
-		int batch = 100;
+		int batch = 1000;
 		int pg_num = 1;
 		boolean more = true;
 		List<String> master_id_list = new ArrayList<String>();
-		Writer writer = null;
+		Map<String, Writer> writers = new HashMap<String, Writer>();
+		
 		try {
 			while (more) {
 				try {
-					if (writer == null) {
-					    writer = new BufferedWriter(new OutputStreamWriter(
-					          new FileOutputStream("opportunity.txt"), "utf-8"));
-					}
-					Result res = CrmGetOpportunityIds(authHeader, "Audit", url, fld_list, batch, pg_num);
+					Result res = CrmGetOpportunityIds(authHeader, entity, url, fld_list, batch, pg_num);
 					if (res.more) {
 						System.out.println("Adding the pg_num" + pg_num);
 						pg_num += 1;
 					}
 					System.out.println("id map keys" + res.id_map.keySet());
-					List<String> opp_ids = res.id_map.get("opportunity");
-					master_id_list.addAll(opp_ids);
-				
-				    for (String line:opp_ids) {
-				    	writer.write(line + "\n");
-				    }
-					System.out.println(" master_id_list size " + master_id_list.size() );
-					if ( master_id_list.size() > 500) {
-						System.out.println(" master_id_list break" );
-						break;
+					for (String key:res.id_map.keySet()) {
+						Writer writer;
+						List<String> opp_ids = res.id_map.get(key);
+						master_id_list.addAll(opp_ids);
+						writer = writers.get(key);
+						if (writer == null) {
+						    writer = new BufferedWriter(new OutputStreamWriter(
+						          new FileOutputStream(key + ".txt"), "utf-8"));
+						    writers.put(key, writer);
+						}
+						for (String line:opp_ids) {
+					    	writer.write(line + "\n");
+					    }
 					}
+				    
+					System.out.println(" master_id_list size " + master_id_list.size() );
+//					if ( master_id_list.size() > 500) {
+//						System.out.println(" master_id_list break" );
+//						break;
+//					} 
 					System.out.println("size " + master_id_list.size());
+					more = Boolean.valueOf(res.more);
 				} catch (Exception e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -289,7 +294,9 @@ public class program {
 				} 
 			}
 		} finally {
-			try {writer.close();} catch (Exception ex) {/*ignore*/}
+			for (Writer writer: writers.values()) {
+				try {writer.close();} catch (Exception ex) {/*ignore*/}
+			}
 		}
 	}
 	
@@ -319,7 +326,7 @@ public class program {
 //        requestMain += "                <a:Filters />";
 //        requestMain += "              </a:Criteria>";
         requestMain += "              <a:Distinct>false</a:Distinct>";
-        requestMain += "              <a:EntityName>opportunity</a:EntityName>";
+        requestMain += "              <a:EntityName>" + entity + "</a:EntityName>";
         requestMain += "              <a:Orders />";
         requestMain += "              <a:PageInfo>";
         requestMain += "                <a:Count>"+ cnt+ "</a:Count>";
@@ -352,7 +359,7 @@ public class program {
 //		System.out.println(" Output " + xDoc.toString());
 		NodeList nodes = xDoc.getElementsByTagName("b:Entity");
 		Map<String, List<String>>id_map = new HashMap<String, List<String>>();
-		System.out.println(" nodes.getLength(); " +  nodes.getLength());
+//		System.out.println(" nodes.getLength(); " +  nodes.getLength());
 		for (int i = 0; i < nodes.getLength(); i++) {
 //			System.out.println(" Entity nodes  " + nodes.item(i).getNodeName());
 			NodeList childNodes = nodes.item(i).getChildNodes();
